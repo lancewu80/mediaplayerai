@@ -1,0 +1,128 @@
+{
+  "name": "mediaplayerai",
+  "version": "1.0.0",
+  "description": "Cross-platform AI-powered multimedia player",
+  "main": "index.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "electron": "npm run electron:build && electron electron-dist/main.js",
+    "electron:dev": "npm run electron:build && concurrently \"cross-env BROWSER=none expo start --web\" \"wait-on http://localhost:8081 && electron electron-dist/main.js\"",
+    "electron:build": "tsc -p tsconfig.electron.json",
+    "build:web": "expo export:web",
+    "build:electron": "npm run build:web && electron-builder",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "postinstall": "node scripts/download-mpv.js",
+    "download-mpv": "node scripts/download-mpv.js"
+  },
+  "dependencies": {
+    "@expo/vector-icons": "^15.0.3",
+    "@react-native-async-storage/async-storage": "^2.1.2",
+    "@react-native-community/slider": "^4.5.5",
+    "@react-navigation/native": "^7.3.4",
+    "@react-navigation/stack": "^7.10.6",
+    "expo": "~54.0.35",
+    "expo-av": "~16.0.8",
+    "expo-document-picker": "~14.0.8",
+    "expo-file-system": "~19.0.23",
+    "expo-keep-awake": "~15.0.8",
+    "expo-localization": "~17.0.9",
+    "expo-screen-orientation": "~9.0.9",
+    "expo-status-bar": "~3.0.9",
+    "howler": "^2.2.4",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-gesture-handler": "~2.28.0",
+    "react-native-google-cast": "^4.9.1",
+    "react-native-google-mobile-ads": "^16.4.0",
+    "react-native-purchases": "^10.4.0",
+    "react-native-reanimated": "~4.1.1",
+    "react-native-safe-area-context": "~5.6.0",
+    "react-native-screens": "~4.16.0",
+    "react-native-video": "^6.19.2",
+    "react-native-vlc-media-player": "^1.0.98",
+    "react-native-web": "^0.21.0",
+    "subsrt-ts": "^2.1.2",
+    "zustand": "^4.5.2"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.24.0",
+    "babel-preset-expo": "~54.0.11",
+    "@types/howler": "^2.2.11",
+    "@types/react": "~19.1.10",
+    "@types/react-native": "~0.73.0",
+    "babel-plugin-module-resolver": "^5.0.2",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3",
+    "typescript": "^5.3.3",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.mediaplayerai.app",
+    "productName": "MediaPlayerAI",
+    "extraMetadata": {
+      "main": "electron-dist/main.js"
+    },
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron-dist/**/*",
+      "web-build/**/*",
+      "node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/bin/win32",
+        "to": "mpv/win32",
+        "filter": [
+          "mpv.exe"
+        ]
+      },
+      {
+        "from": "resources/bin/darwin",
+        "to": "mpv/darwin",
+        "filter": [
+          "mpv"
+        ]
+      },
+      {
+        "from": "resources/bin/linux",
+        "to": "mpv/linux",
+        "filter": [
+          "mpv"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "assets/icon.icns",
+      "extendInfo": {
+        "NSDocumentsFolderUsageDescription": "Required to access media files."
+      }
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "assets/icon.png"
+    }
+  }
+}
