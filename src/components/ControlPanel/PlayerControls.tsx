@@ -1,13 +1,12 @@
 import React from 'react';
 import {
-  View, TouchableOpacity, Text, StyleSheet, Platform,
+  View, TouchableOpacity, Text, StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { usePlayerStore } from '../../store/playerStore';
 import { usePlaylistStore } from '../../store/playlistStore';
 import { useLangStore } from '../../store/langStore';
 import { formatTime } from '../../services/audioService';
-import { PlayMode } from '../../types';
 
 const COLORS = {
   bg: '#1a1a2e',
@@ -27,11 +26,38 @@ export default function PlayerControls({ onSeek, onPlay, onPause }: Props) {
   const { t } = useLangStore();
   const {
     currentItem, isPlaying, position, duration, playMode,
-    setPlayMode, togglePlayMode,
+    setPlayMode,
   } = usePlayerStore();
-  const { getNextItem, getPrevItem, getFirstItem, getLastItem, setActivePlaylist } = usePlaylistStore();
+  const { getNextItem, getPrevItem, getFirstItem, getLastItem } = usePlaylistStore();
   const { currentIndex } = usePlayerStore();
   const { setCurrentItem } = usePlayerStore();
+
+  // Shuffle: independent toggle (on / off)
+  const isShuffle = playMode === 'shuffle';
+
+  // Loop: cycles sequential → repeat-all → repeat-one (independent of shuffle)
+  const loopMode: 'none' | 'all' | 'one' =
+    playMode === 'repeat-all' ? 'all' :
+    playMode === 'repeat-one' ? 'one' : 'none';
+
+    function toggleShuffle() {
+    // Preserve loop when toggling shuffle
+    const loopPart = playMode === 'repeat-all' ? 'repeat-all' :
+      playMode === 'repeat-one' ? 'repeat-one' : null;
+    if (isShuffle) {
+      setPlayMode(loopPart ?? 'sequential');
+    } else {
+      setPlayMode('shuffle');
+    }
+  }
+
+  function toggleLoop() {
+    // Preserve shuffle when cycling loop modes
+    const shufflePrefix = playMode === 'shuffle';
+    if (loopMode === 'none') setPlayMode(shufflePrefix ? 'shuffle' : 'repeat-all');
+    else if (loopMode === 'all') setPlayMode(shufflePrefix ? 'shuffle' : 'repeat-one');
+    else setPlayMode(shufflePrefix ? 'shuffle' : 'sequential');
+  }
 
   const progress = duration > 0 ? position / duration : 0;
 
@@ -53,15 +79,6 @@ export default function PlayerControls({ onSeek, onPlay, onPause }: Props) {
   }
   function handleSeekBack() { onSeek(Math.max(0, position - 10)); }
   function handleSeekForward() { onSeek(Math.min(duration, position + 10)); }
-
-  function playModeIcon(): keyof typeof Ionicons.glyphMap {
-    switch (playMode) {
-      case 'shuffle': return 'shuffle';
-      case 'repeat-one': return 'repeat-outline';
-      case 'repeat-all': return 'repeat';
-      default: return 'list';
-    }
-  }
 
   return (
     <View style={styles.container}>
@@ -130,12 +147,21 @@ export default function PlayerControls({ onSeek, onPlay, onPause }: Props) {
           <Ionicons name="play-skip-forward" size={22} color={COLORS.text} />
         </TouchableOpacity>
 
-        {/* Play mode */}
-        <TouchableOpacity onPress={togglePlayMode} style={styles.btn}>
+        {/* Loop mode */}
+        <TouchableOpacity onPress={toggleLoop} style={styles.btn}>
           <Ionicons
-            name={playModeIcon()}
+            name={loopMode === 'one' ? 'repeat-outline' : 'repeat'}
             size={20}
-            color={playMode !== 'sequential' ? COLORS.active : COLORS.subText}
+            color={loopMode !== 'none' ? COLORS.active : COLORS.subText}
+          />
+        </TouchableOpacity>
+
+        {/* Shuffle */}
+        <TouchableOpacity onPress={toggleShuffle} style={styles.btn}>
+          <Ionicons
+            name="shuffle"
+            size={20}
+            color={isShuffle ? COLORS.active : COLORS.subText}
           />
         </TouchableOpacity>
       </View>

@@ -20,7 +20,7 @@ export default function ControlPanel() {
     currentItem, isPlaying, volume, isMuted,
     setPlaying, setPosition, setDuration, playMode,
   } = usePlayerStore();
-  const { getNextItem, currentIndex: _ci } = usePlaylistStore();
+  const { getNextItem } = usePlaylistStore();
   const { currentIndex } = usePlayerStore();
   const { equalizer, ai } = useSettingsStore();
   const { isDark, toggle: toggleTheme } = useThemeStore();
@@ -43,12 +43,28 @@ export default function ControlPanel() {
         setDuration(audioRef.current?.duration ?? 0);
       };
       audioRef.current.onended = () => {
-        const next = getNextItem(currentIndex, playMode === 'shuffle');
-        if (next) {
-          usePlayerStore.getState().setCurrentItem(next.item, next.index);
-        } else {
-          setPlaying(false);
+        // Read fresh state from stores — avoid stale-closure bugs.
+        const { currentIndex: idx, playMode: mode } = usePlayerStore.getState();
+        const { getNextItem: getNext, activePlaylist } = usePlaylistStore.getState();
+        const items = activePlaylist?.items ?? [];
+
+        // repeat-one: restart the same track
+        if (mode === 'repeat-one') {
+          const audio = audioRef.current;
+          if (audio) { audio.currentTime = 0; audio.play().catch(() => {}); }
+          return;
         }
+
+        // sequential: stop after the last track
+        if (mode === 'sequential' && idx >= items.length - 1) {
+          usePlayerStore.getState().setPlaying(false);
+          return;
+        }
+
+        // repeat-all / shuffle: advance to next (wraps around)
+        const next = getNext(idx, mode === 'shuffle');
+        if (next) usePlayerStore.getState().setCurrentItem(next.item, next.index);
+        else      usePlayerStore.getState().setPlaying(false);
       };
     }
 

@@ -1,7 +1,8 @@
-import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell, protocol, net } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import { spawn, ChildProcess } from 'child_process';
+import { pathToFileURL } from 'url';
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
@@ -31,14 +32,85 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:8081');
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(__dirname, '..', 'web-build', 'index.html'));
+    // Load via custom app:// protocol so absolute paths like /_expo/static/...
+    // are resolved against web-build/, not the filesystem root.
+    mainWindow.loadURL('app://index.html');
   }
 
   mainWindow.once('ready-to-show', () => mainWindow?.show());
   mainWindow.on('closed', () => { mainWindow = null; });
+
+  // ── Inject icon fonts for packaged build ──────────────────────────────────
+  // Expo web export does not always copy vector-icon fonts into web-build/.
+  // We inject @font-face rules pointing to node_modules so icons always render.
+  if (!isDev) {
+    mainWindow.webContents.on('did-finish-load', () => {
+      const fontsDir = path.join(
+        __dirname, '..', 'node_modules',
+        '@expo', 'vector-icons', 'build', 'vendor',
+        'react-native-vector-icons', 'Fonts',
+      );
+      const fonts: Array<{ family: string; file: string }> = [
+        { family: 'Ionicons',          file: 'Ionicons.ttf' },
+        { family: 'MaterialIcons',     file: 'MaterialIcons.ttf' },
+        { family: 'FontAwesome',       file: 'FontAwesome.ttf' },
+        { family: 'MaterialCommunityIcons', file: 'MaterialCommunityIcons.ttf' },
+      ];
+
+      const css = fonts
+        .filter(({ file }) => fs.existsSync(path.join(fontsDir, file)))
+        .map(({ family, file }) => {
+          const url = pathToFileURL(path.join(fontsDir, file)).toString();
+          return `@font-face{font-family:'${family}';src:url('${url}') format('truetype');font-weight:normal;font-style:normal;}`;
+        })
+        .join('\n');
+
+      if (css) mainWindow?.webContents.insertCSS(css);
+    });
+  }
 }
 
-app.whenReady().then(createWindow);
+// ─── Custom protocol: app:// ──────────────────────────────────────────────────
+// Expo Metro exports JS bundles with absolute paths like /_expo/static/...
+// which break under file:// (the OS root is not web-build/).
+// Registering "app://" lets us intercept every request and resolve it
+// relative to the web-build folder, regardless of the path prefix.
+
+const WEB_BUILD = path.join(__dirname, '..', 'web-build');
+
+// Must be called before app.whenReady() resolves
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'app',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      allowServiceWorkers: true,
+      corsEnabled: false,
+    },
+  },
+]);
+
+app.whenReady().then(() => {
+  // Serve every app:// request from the web-build directory
+  protocol.handle('app', (request) => {
+    const url = new URL(request.url);
+    // url.pathname is already decoded; resolve against WEB_BUILD
+    let filePath = path.join(WEB_BUILD, url.pathname);
+
+    // If the path is a directory (or has no extension), serve index.html
+    // so that client-side routing works.
+    if (!path.extname(filePath) || (fs.existsSync(filePath) && fs.statSync(filePath).isDirectory())) {
+      filePath = path.join(WEB_BUILD, 'index.html');
+    }
+
+    return net.fetch(pathToFileURL(filePath).toString());
+  });
+
+  createWindow();
+});
+
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
