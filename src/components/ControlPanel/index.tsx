@@ -16,6 +16,8 @@ import { webEqualizer } from '../../services/audioService';
 
 export default function ControlPanel() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Mobile: expo-av Sound object (loaded lazily to avoid static import crash)
+  const soundRef = useRef<any>(null);
   const {
     currentItem, isPlaying, volume, isMuted,
     setPlaying, setPosition, setDuration, playMode,
@@ -125,6 +127,89 @@ export default function ControlPanel() {
     }
   }, [equalizer]);
 
+  // ── Mobile: load & play new track via expo-av ─────────────────────────────
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+
+    async function loadAndPlay() {
+      try {
+        const { Audio } = await import('expo-av');
+
+        // Enable audio playback in silent mode on iOS
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: false,
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: true,
+          shouldDuckAndroid: true,
+        });
+
+        // Unload previous sound
+        if (soundRef.current) {
+          await soundRef.current.stopAsync().catch(() => {});
+          await soundRef.current.unloadAsync().catch(() => {});
+          soundRef.current = null;
+        }
+
+        if (!currentItem || currentItem.type !== 'audio') return;
+
+        const { sound } = await Audio.Sound.createAsync(
+          { uri: currentItem.uri },
+          { shouldPlay: true, volume: isMuted ? 0 : volume },
+          (status: any) => {
+            if (!status.isLoaded) return;
+            setPosition(status.positionMillis / 1000);
+            if (status.durationMillis) setDuration(status.durationMillis / 1000);
+            if (status.didJustFinish) {
+              // Advance to next track
+              const { currentIndex: idx, playMode: mode } = usePlayerStore.getState();
+              const { getNextItem: getNext, activePlaylist } = usePlaylistStore.getState();
+              const items = activePlaylist?.items ?? [];
+              if (mode === 'repeat-one') {
+                sound.replayAsync().catch(() => {});
+                return;
+              }
+              if (mode === 'sequential' && idx >= items.length - 1) {
+                usePlayerStore.getState().setPlaying(false);
+                return;
+              }
+              const next = getNext(idx, mode === 'shuffle');
+              if (next) usePlayerStore.getState().setCurrentItem(next.item, next.index);
+              else usePlayerStore.getState().setPlaying(false);
+            }
+          }
+        );
+        soundRef.current = sound;
+      } catch (e) {
+        console.error('Mobile audio load error:', e);
+      }
+    }
+
+    loadAndPlay();
+
+    return () => {
+      soundRef.current?.stopAsync().catch(() => {});
+      soundRef.current?.unloadAsync().catch(() => {});
+      soundRef.current = null;
+    };
+  }, [currentItem]);
+
+  // ── Mobile: play / pause ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (Platform.OS === 'web' || !soundRef.current) return;
+    if (currentItem?.type !== 'audio') return;
+    if (isPlaying) {
+      soundRef.current.playAsync().catch(() => {});
+    } else {
+      soundRef.current.pauseAsync().catch(() => {});
+    }
+  }, [isPlaying]);
+
+  // ── Mobile: volume ────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (Platform.OS === 'web' || !soundRef.current) return;
+    soundRef.current.setVolumeAsync(isMuted ? 0 : volume).catch(() => {});
+  }, [volume, isMuted]);
+
   function handlePlay() {
     // For video items, trigger the video window to (re-)open
     if (currentItem?.type === 'video') {
@@ -137,6 +222,8 @@ export default function ControlPanel() {
   function handleSeek(pos: number) {
     if (Platform.OS === 'web' && audioRef.current) {
       audioRef.current.currentTime = pos;
+    } else if (Platform.OS !== 'web' && soundRef.current) {
+      soundRef.current.setPositionAsync(pos * 1000).catch(() => {});
     }
     setPosition(pos);
   }

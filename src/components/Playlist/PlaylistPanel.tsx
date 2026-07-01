@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, FlatList, StyleSheet,
-  Platform, Alert, TextInput, Modal,
+  Platform, Alert, TextInput, Modal, PermissionsAndroid,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { usePlaylistStore } from '../../store/playlistStore';
@@ -15,6 +15,7 @@ import {
   loadPlaylistFromFile,
   isSupportedFormat,
 } from '../../services/playlistService';
+import MediaLibraryPicker from './MediaLibraryPicker';
 import { formatTime } from '../../services/audioService';
 
 const COLORS = {
@@ -91,6 +92,7 @@ export default function PlaylistPanel() {
   const { t } = useLangStore();
   const [renameVisible, setRenameVisible] = useState(false);
   const [renameName, setRenameName] = useState('');
+  const [mediaLibVisible, setMediaLibVisible] = useState(false);
 
   const items = activePlaylist?.items ?? [];
 
@@ -108,17 +110,20 @@ export default function PlaylistPanel() {
         addItems(paths.filter(isSupportedFormat).map((p) => buildMediaItemFromPath(p)));
       }
     } else if (Platform.OS !== 'web') {
-      // Mobile: expo-document-picker
-      const { getDocumentAsync } = await import('expo-document-picker');
-      const result = await getDocumentAsync({ type: '*/*', multiple: true } as any);
-      if (result.type === 'success') {
-        const file = result as any;
-        const files = file.output ?? [file];
-        addItems(
-          files
-            .filter((f: any) => isSupportedFormat(f.name ?? f.uri))
-            .map((f: any) => buildMediaItemFromPath(f.uri, f.uri))
-        );
+      // Mobile: expo-document-picker v10+ API: { canceled, assets: [{uri, name, mimeType}] }
+      try {
+        const { getDocumentAsync } = await import('expo-document-picker');
+        const result = await getDocumentAsync({ type: '*/*', multiple: true } as any);
+        if (!result.canceled && result.assets?.length) {
+          addItems(
+            result.assets
+              .filter((f: any) => isSupportedFormat(f.name ?? f.uri))
+              .map((f: any) => buildMediaItemFromPath(f.name ?? f.uri, f.uri))
+          );
+        }
+      } catch (err) {
+        console.error('Document picker error:', err);
+        Alert.alert(t('error') || 'Error', (err as any).message || 'Failed to open file picker');
       }
     } else {
       // Browser (not Electron): use input[type=file]
@@ -143,6 +148,9 @@ export default function PlaylistPanel() {
         const newItems = await scanDirectory(dir);
         addItems(newItems);
       }
+    } else if (Platform.OS !== 'web') {
+      // Mobile: open MediaLibrary folder picker
+      setMediaLibVisible(true);
     } else if (Platform.OS === 'web') {
       // Browser: webkitdirectory
       const input = document.createElement('input');
@@ -208,6 +216,12 @@ export default function PlaylistPanel() {
 
   return (
     <View style={styles.container}>
+      {/* Media Library Folder Picker (mobile only) */}
+      <MediaLibraryPicker
+        visible={mediaLibVisible}
+        onClose={() => setMediaLibVisible(false)}
+        onAdd={(newItems) => addItems(newItems)}
+      />
       {/* Toolbar */}
       <View style={styles.toolbar}>
         <Text style={styles.playlistName} numberOfLines={1}>

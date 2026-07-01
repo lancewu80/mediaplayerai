@@ -5,8 +5,8 @@
   "main": "index.js",
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "electron": "npm run electron:build && electron electron-dist/main.js",
     "electron:dev": "npm run electron:build && concurrently \"cross-env BROWSER=none expo start --web\" \"wait-on http://localhost:8081 && electron electron-dist/main.js\"",
@@ -15,7 +15,7 @@
     "build:electron": "npm run electron:build && npm run build:web && electron-builder",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
-    "postinstall": "node scripts/download-mpv.js",
+    "postinstall": "node scripts/download-mpv.js && patch-package",
     "download-mpv": "node scripts/download-mpv.js"
   },
   "dependencies": {
@@ -30,6 +30,7 @@
     "expo-file-system": "~19.0.23",
     "expo-keep-awake": "~15.0.8",
     "expo-localization": "~17.0.9",
+    "expo-media-library": "^18.2.1",
     "expo-screen-orientation": "~9.0.9",
     "expo-status-bar": "~3.0.9",
     "howler": "^2.2.4",
@@ -46,20 +47,22 @@
     "react-native-video": "^6.19.2",
     "react-native-vlc-media-player": "^1.0.98",
     "react-native-web": "^0.21.0",
+    "react-native-worklets": "^0.8.0",
     "subsrt-ts": "^2.1.2",
     "zustand": "^4.5.2"
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",
-    "babel-preset-expo": "~54.0.11",
     "@types/howler": "^2.2.11",
     "@types/react": "~19.1.10",
     "@types/react-native": "~0.73.0",
     "babel-plugin-module-resolver": "^5.0.2",
+    "babel-preset-expo": "~54.0.11",
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
     "electron": "^31.0.0",
     "electron-builder": "^24.13.3",
+    "patch-package": "^8.0.0",
     "typescript": "^5.3.3",
     "wait-on": "^7.2.0"
   },

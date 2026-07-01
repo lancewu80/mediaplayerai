@@ -29,6 +29,15 @@ const en = {
   emptyPlaylist: 'Playlist is empty',
   emptyPlaylistSub: 'Add files or a directory to get started',
 
+  // Permissions
+  permissionTitle: 'File Access Permission',
+  permissionMessage: 'This app needs access to your files',
+  permissionDenied: 'Permission Denied',
+  permissionRequired: 'File access is required to add media',
+  ask_later: 'Ask Later',
+  directoryNotSupported: 'Directory scanning is not fully supported on mobile. Please use "Add Files" instead.',
+  info: 'Info',
+
   // Video player
   videoPlayer: 'Video Player',
   fullscreen: 'Fullscreen',

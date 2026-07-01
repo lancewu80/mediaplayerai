@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, StyleSheet, Platform, SafeAreaView, TouchableOpacity,
-  Text, StatusBar,
+  Text, StatusBar, PermissionsAndroid,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -51,14 +51,36 @@ export default function App() {
       // Restore saved theme + language preferences
       await Promise.all([loadTheme(), loadLang()]);
 
-      // Init subscriptions first (gates ads)
-      await initializeSubscriptions();
+      // Request media permissions on Android at startup
+      if (Platform.OS === 'android') {
+        try {
+          const sdkVersion = parseInt(Platform.Version as string, 10);
+          if (sdkVersion >= 33) {
+            // Android 13+: granular media permissions
+            await PermissionsAndroid.requestMultiple([
+              PermissionsAndroid.PERMISSIONS.READ_MEDIA_AUDIO,
+              PermissionsAndroid.PERMISSIONS.READ_MEDIA_VIDEO,
+            ]);
+          } else {
+            // Android 12 and below
+            await PermissionsAndroid.request(
+              PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+            );
+          }
+        } catch (e) {
+          console.warn('Permission request failed:', e);
+        }
+      }
 
-      // Init AdMob SDK
-      await AdsService.init();
+      // TODO: Add real AdMob Application ID to AndroidManifest.xml before re-enabling
+      // // Init subscriptions first (gates ads)
+      // await initializeSubscriptions();
 
-      // Preload ads for later
-      void AdsService.preloadInterstitial();
+      // // Init AdMob SDK
+      // await AdsService.init();
+
+      // // Preload ads for later
+      // void AdsService.preloadInterstitial();
     }
     bootstrap().catch(console.error);
   }, []);
@@ -125,11 +147,13 @@ export default function App() {
         {/* ── Banner Ad (below playlist, above safe area) ── */}
         <BannerAdView placement="playlist" />
 
-        {/* ── Video player (modal) ── */}
-        <VideoPlayerWindow
-          visible={videoVisible}
-          onClose={handleVideoClose}
-        />
+        {/* ── Video player (modal) — Web/Electron only, not supported on mobile ── */}
+        {Platform.OS !== 'ios' && Platform.OS !== 'android' && (
+          <VideoPlayerWindow
+            visible={videoVisible}
+            onClose={handleVideoClose}
+          />
+        )}
 
         {/* ── Subscription modal ── */}
         <SubscriptionModal

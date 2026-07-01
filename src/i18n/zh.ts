@@ -31,6 +31,15 @@ const zh: Record<TranslationKeys, string> = {
   emptyPlaylist: '播放清單是空的',
   emptyPlaylistSub: '新增檔案或目錄以開始播放',
 
+  // Permissions
+  permissionTitle: '檔案存取權限',
+  permissionMessage: '此應用程式需要存取您的檔案',
+  permissionDenied: '權限被拒絕',
+  permissionRequired: '需要檔案存取權限才能新增媒體',
+  ask_later: '稍後再問',
+  directoryNotSupported: '行動裝置不完全支援目錄掃描。請改用「加入檔案」。',
+  info: '資訊',
+
   // Video player
   videoPlayer: '影片播放器',
   fullscreen: '全螢幕',
